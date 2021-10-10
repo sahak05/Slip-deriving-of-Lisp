@@ -37,11 +37,19 @@ data Sexp = Snil                        -- La liste vide
 -- (/ (* (- 68 32) 5) 9)
 --     ==>
 -- Scons (Ssym "/")
---       (Scons (Scons (Ssym "*")
---                     (Scons (Scons (Ssym "-")
---                                   (Scons (Snum 68) (Scons (Snum 32) Snil))
---                              )
---                            (Scons (Snum 5) Snil)))
+--       (Scons (Scons (Ssym "*") // 9-    210
+--                     (Scons    //8-  scons 36 5 
+--                          (Scons   //6- scons 36 retourne 36
+--                              (Ssym "-")   //5-   68-32=36   
+--                                   (Scons   //4- scons 68 32
+--                                        (Snum 68)    //3-  68
+--                                            (Scons    //2-  32
+--                                                (Snum 32) Snil) // 1-retroure 32
+--                                             )
+--                                     )
+--                                     (Scons (Snum 5) Snil)   //7-   scons 5 retourne 5
+--                           )
+--                        )
 --              (Scons (Snum 9) Snil))
 
 ---------------------------------------------------------------------------
@@ -193,6 +201,12 @@ data Lexp = Lnum Int            -- Constante entière.
 s2l :: Sexp -> Lexp
 s2l (Snum n) = Lnum n
 s2l (Ssym s) = Lvar s
+s2l (Scons(Ssym a)(Snum b)) = Lfn a (Lnum b)
+s2l (Scons(Ssym a)(Scons(Snum b)(Snil))) =Lfn a (Lnum b)
+s2l ( Scons (Ssym a)(Scons (Snum b)(Snum c))) = Lpipe (Lfn a (Lnum b)) (Lnum c)
+--s2l (Scons x y) = Lcons cons  
+--s2l (Scons (Ssym x)(Scons (Snum a)(Snum b))) =Lcons x [s2l(Snum a),s2l(Snum b)]
+--s2l(Scons (Ssym a)(Scon x y)) = s2l(Scons (Ssym a) Scons(s2l(x)s2l(y)))
 -- ¡¡ COMPLETER !!
 s2l se = error ("Malformed Sexp: " ++ (showSexp se))
 
@@ -250,7 +264,8 @@ env0 = let false = Vcons "false" []
 ---------------------------------------------------------------------------
 
 eval :: Env -> Env -> Lexp -> Value
-eval _senv _denv (Lnum n) = Vnum n
+eval _senv _denv (Lnum n) = Vnum n 
+--eval _senv _denv (Lvar x) = 
 -- ¡¡ COMPLETER !!
 eval _ _ e = error ("Can't eval: " ++ show e)
 
