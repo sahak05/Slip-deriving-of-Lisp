@@ -259,13 +259,28 @@ env0 = let false = Vcons "false" []
                (">", (>)),
                ("=", (==))]
 
+
+---------------------------------------------------------------------------
+-- Espaces fonctions auxillaires                                         --
+---------------------------------------------------------------------------
+
+foundinEnv :: Var ->[(Var, Value)]-> Value
+--je veux pas avoir le cas ou ca n'existe pas encore mais on peux mettre ca 
+foundinEnv _ [] = error "votre variable inexistante !!"
+foundinEnv  a (x:xs) = if (a == (fst x)) then snd x
+                            else foundinEnv a xs 
+
+---------------------------------------------------------------------------
+-- Fin Espaces donctions auxillaires                                     --
+---------------------------------------------------------------------------
+
 ---------------------------------------------------------------------------
 -- Évaluateur                                                            --
 ---------------------------------------------------------------------------
 
 eval :: Env -> Env -> Lexp -> Value
 eval _senv _denv (Lnum n) = Vnum n 
---eval _senv _denv (Lvar x) = 
+eval _senv _denv (Lvar x) = foundinEnv x _senv 
 -- ¡¡ COMPLETER !!
 eval _ _ e = error ("Can't eval: " ++ show e)
 

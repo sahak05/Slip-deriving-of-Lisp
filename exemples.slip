@@ -10,7 +10,7 @@
 
 (5
  (3
-  (lambda (x) (lambda (y) (* x y)))))   ; ↝ 15
+  (lambda (x) (lambda (y) (y (x *))))))   ; ↝ 15
 
 (cons nil)                              ; ↝ [nil]
 (cons cons 1 2)                         ; ↝ [cons 1 2]
