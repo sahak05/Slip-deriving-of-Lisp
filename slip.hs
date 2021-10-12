@@ -201,9 +201,10 @@ data Lexp = Lnum Int            -- Constante entière.
 s2l :: Sexp -> Lexp
 s2l (Snum n) = Lnum n
 s2l (Ssym s) = Lvar s
+s2l ( Scons (Snum a)(Scons (Ssym b)(Scons (Snum c)Snil)))= Lpipe (Lfn b (Lnum c)) (Lnum a)
 s2l (Scons(Ssym a)(Snum b)) = Lfn a (Lnum b)
 s2l (Scons(Ssym a)(Scons(Snum b)(Snil))) =Lfn a (Lnum b)
-s2l ( Scons (Ssym a)(Scons (Snum b)(Snum c))) = Lpipe (Lfn a (Lnum b)) (Lnum c)
+s2l ( Scons (Ssym a)(Scons (Snum b)(Scons(Snum c)Snil))) = Lpipe (Lfn a (Lnum b)) (Lnum c)
 --s2l (Scons x y) = Lcons cons  
 --s2l (Scons (Ssym x)(Scons (Snum a)(Snum b))) =Lcons x [s2l(Snum a),s2l(Snum b)]
 --s2l(Scons (Ssym a)(Scon x y)) = s2l(Scons (Ssym a) Scons(s2l(x)s2l(y)))
