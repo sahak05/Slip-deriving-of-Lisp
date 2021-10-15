@@ -201,13 +201,11 @@ data Lexp = Lnum Int            -- Constante entière.
 s2l :: Sexp -> Lexp
 s2l (Snum n) = Lnum n
 s2l (Ssym s) = Lvar s
-s2l ( Scons (Snum a)(Scons (Ssym b)(Scons (Snum c)Snil)))= Lpipe (Lfn b (Lnum c)) (Lnum a)
-s2l (Scons(Ssym a)(Snum b)) = Lfn a (Lnum b)
-s2l (Scons(Ssym a)(Scons(Snum b)(Snil))) =Lfn a (Lnum b)
-s2l ( Scons (Ssym a)(Scons (Snum b)(Scons(Snum c)Snil))) = Lpipe (Lfn a (Lnum b)) (Lnum c)
---s2l (Scons x y) = Lcons cons  
---s2l (Scons (Ssym x)(Scons (Snum a)(Snum b))) =Lcons x [s2l(Snum a),s2l(Snum b)]
---s2l(Scons (Ssym a)(Scon x y)) = s2l(Scons (Ssym a) Scons(s2l(x)s2l(y)))
+s2l(Scons (Snum a) (Scons (Scons (Snum b) (Scons (Ssym c) Snil)) Snil)) 
+                           = Lpipe (Lfn c (s2l(Snum b))) (s2l(Snum a))
+
+s2l()
+
 -- ¡¡ COMPLETER !!
 s2l se = error ("Malformed Sexp: " ++ (showSexp se))
 
@@ -271,6 +269,8 @@ foundinEnv _ [] = error "votre variable inexistante !!"
 foundinEnv  a (x:xs) = if (a == (fst x)) then snd x
                             else foundinEnv a xs 
 
+
+
 ---------------------------------------------------------------------------
 -- Fin Espaces donctions auxillaires                                     --
 ---------------------------------------------------------------------------
@@ -282,6 +282,14 @@ foundinEnv  a (x:xs) = if (a == (fst x)) then snd x
 eval :: Env -> Env -> Lexp -> Value
 eval _senv _denv (Lnum n) = Vnum n 
 eval _senv _denv (Lvar x) = foundinEnv x _senv 
+--Lfun et Lpipe assez pretty bon 
+--Lfun respecte deja la recursion et Lpipe juste le cas ou il ya Lfun en ddans
+eval _senv _denv (Lfn x y) = let Vfn fct = (foundinEnv x _senv) 
+                                  in fct _senv (eval _senv _denv y)
+
+eval _senv _denv (Lpipe (Lfn x1 x3) x2) =  case eval _senv _denv (Lfn x1 x3) of
+                                       Vfn f -> f _senv (eval _senv _denv x2)
+                                       _ -> error "Not a function"
 -- ¡¡ COMPLETER !!
 eval _ _ e = error ("Can't eval: " ++ show e)
 
