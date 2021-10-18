@@ -202,9 +202,15 @@ s2l :: Sexp -> Lexp
 s2l (Snum n) = Lnum n
 s2l (Ssym s) = Lvar s
 s2l(Scons (Snum a) (Scons (Scons (Snum b) (Scons (Ssym c) Snil)) Snil)) 
-                           = Lpipe (Lfn c (s2l(Snum b))) (s2l(Snum a))
+                           = Lpipe (s2l(Snum a)) (Lpipe (s2l(Snum b)) (s2l(Ssym c))) 
 
-s2l()
+--cas ou le sucre syntaxique nest pas 
+--s2l()
+
+--un scons venant avec Ssym "cons"
+{--s2l(Scons (Ssym "cons")(Scons x Snil))= Lcons
+s2l(Scons (Ssym "cons") (Scons x y))= Lcons "cons" [(s2l x), (s2l y)]
+s2l(Scons (Ssym "cons") (Scons (Ssym "nil") Snil))--}
 
 -- ¡¡ COMPLETER !!
 s2l se = error ("Malformed Sexp: " ++ (showSexp se))
@@ -284,12 +290,13 @@ eval _senv _denv (Lnum n) = Vnum n
 eval _senv _denv (Lvar x) = foundinEnv x _senv 
 --Lfun et Lpipe assez pretty bon 
 --Lfun respecte deja la recursion et Lpipe juste le cas ou il ya Lfun en ddans
-eval _senv _denv (Lfn x y) = let Vfn fct = (foundinEnv x _senv) 
-                                  in fct _senv (eval _senv _denv y)
+--eval _senv _denv (Lfn x y) = let Vfn fct = (foundinEnv x _senv) 
+                                  --in fct _senv (eval _senv _denv y)
 
-eval _senv _denv (Lpipe (Lfn x1 x3) x2) =  case eval _senv _denv (Lfn x1 x3) of
-                                       Vfn f -> f _senv (eval _senv _denv x2)
-                                       _ -> error "Not a function"
+eval _senv _denv (Lpipe x1 (Lpipe x2 (Lvar x3)) ) = 
+                                  let Vfn funct = (foundinEnv x3 _senv) 
+                                      Vfn f = funct _senv (eval _senv _denv x2)
+                                          in f _senv (eval _senv _denv x1)
 -- ¡¡ COMPLETER !!
 eval _ _ e = error ("Can't eval: " ++ show e)
 
