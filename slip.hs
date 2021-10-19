@@ -201,11 +201,22 @@ data Lexp = Lnum Int            -- Constante entière.
 s2l :: Sexp -> Lexp
 s2l (Snum n) = Lnum n
 s2l (Ssym s) = Lvar s
-s2l(Scons (Snum a) (Scons (Scons (Snum b) (Scons (Ssym c) Snil)) Snil)) 
-                           = Lpipe (s2l(Snum a)) (Lpipe (s2l(Snum b)) (s2l(Ssym c))) 
+s2l(Scons (x1) (Scons (Scons (x2) (Scons (Ssym c) Snil)) Snil)) 
+                           = Lpipe (s2l(x1)) (Lpipe (s2l(x2)) (s2l(Ssym c))) 
 
 --cas ou le sucre syntaxique nest pas 
---s2l()
+s2l(Scons (Snum a) (Scons (Scons (Ssym "lambda")
+ (Scons (Scons (Ssym b) Snil) (Scons (Ssym c) Snil))) Snil))
+                                                = Lfn c (Lfn b (s2l (Snum a)))
+
+--cas avec le sucre syntaxique
+s2l (Scons x1 (Scons (Scons x2 (Scons (Scons (Ssym "lambda")
+ (Scons (Scons (Ssym a1) Snil) (Scons (Scons (Ssym "lambda")
+  (Scons (Scons (Ssym a2) Snil) (Scons (Scons (Ssym a3)
+   (Scons (Scons (Ssym a4)
+    (Scons (Ssym b) Snil)) Snil)) Snil))) Snil))) Snil)) Snil)) = 
+  Lfn a1 (Lfn a2 (Lpipe (s2l x1) (Lpipe (s2l x2) 
+    (s2l(Scons (Ssym a3) (Scons (Scons ((Ssym a4)) (Scons (Ssym b) Snil)) Snil))))))
 
 --un scons venant avec Ssym "cons"
 {--s2l(Scons (Ssym "cons")(Scons x Snil))= Lcons
@@ -275,8 +286,13 @@ foundinEnv _ [] = error "votre variable inexistante !!"
 foundinEnv  a (x:xs) = if (a == (fst x)) then snd x
                             else foundinEnv a xs 
 
-
-
+--Ajoute (variable, value) a l'environnement en verifiant si un tuple
+--commencant par la variable ny est pas
+addEnv :: Var -> Value -> Env -> Env 
+addEnv a b [] = (a,b):[]
+addEnv a b (x:xs) = 
+              if (a == fst x) then addEnv a b xs
+                    else x:[]
 ---------------------------------------------------------------------------
 -- Fin Espaces donctions auxillaires                                     --
 ---------------------------------------------------------------------------
@@ -297,6 +313,19 @@ eval _senv _denv (Lpipe x1 (Lpipe x2 (Lvar x3)) ) =
                                   let Vfn funct = (foundinEnv x3 _senv) 
                                       Vfn f = funct _senv (eval _senv _denv x2)
                                           in f _senv (eval _senv _denv x1)
+
+
+
+eval _senv _denv (Lfn x (Lfn y (Lpipe z (Lpipe t u)))) = 
+                                 let varIn =(addEnv x (eval _senv _denv z) _senv)
+                                     varIn1 =(addEnv y (eval _senv _denv t) varIn)
+                                     in eval varIn1 _denv u 
+              --where (addEnv x (eval _senv _denv z)) (addEnv y (eval _senv _denv t)) 
+
+
+--eval _senv _denv (Lfn c (Lfn b x)) = foundinEnv c ((b,(eval _senv _denv x)):_denv)
+eval _senv _denv (Lfn c (Lfn b x)) = foundinEnv c (addEnv b (eval _senv _denv x) _senv)
+
 -- ¡¡ COMPLETER !!
 eval _ _ e = error ("Can't eval: " ++ show e)
 
