@@ -202,21 +202,42 @@ s2l :: Sexp -> Lexp
 s2l (Snum n) = Lnum n
 s2l (Ssym s) = Lvar s
 s2l(Scons (x1) (Scons (Scons (x2) (Scons (Ssym c) Snil)) Snil)) 
-                           = Lpipe (s2l(x1)) (Lpipe (s2l(x2)) (s2l(Ssym c))) 
+              = Lpipe (s2l(x1)) (Lpipe (s2l(x2)) (s2l(Ssym c))) 
 
 --cas ou le sucre syntaxique nest pas 
-s2l(Scons (Snum a) (Scons (Scons (Ssym "lambda")
- (Scons (Scons (Ssym b) Snil) (Scons (Ssym c) Snil))) Snil))
-                                                = Lfn c (Lfn b (s2l (Snum a)))
+s2l(Scons (Snum a) 
+           (Scons (Scons (Ssym "lambda")
+                  (Scons (Scons (Ssym b) Snil)
+                  (Scons (Ssym c) 
+            Snil))) 
+    Snil)) = Lfn c (Lfn b (s2l (Snum a)))
 
 --cas avec le sucre syntaxique
-s2l (Scons x1 (Scons (Scons x2 (Scons (Scons (Ssym "lambda")
- (Scons (Scons (Ssym a1) Snil) (Scons (Scons (Ssym "lambda")
-  (Scons (Scons (Ssym a2) Snil) (Scons (Scons (Ssym a3)
-   (Scons (Scons (Ssym a4)
-    (Scons (Ssym b) Snil)) Snil)) Snil))) Snil))) Snil)) Snil)) = 
-  Lfn a1 (Lfn a2 (Lpipe (s2l x1) (Lpipe (s2l x2) 
-    (s2l(Scons (Ssym a3) (Scons (Scons ((Ssym a4)) (Scons (Ssym b) Snil)) Snil))))))
+s2l (Scons x1 (Scons (Scons x2 
+                  (Scons (Scons (Ssym "lambda")
+                         (Scons (Scons (Ssym a1) Snil)
+                  (Scons (Scons (Ssym "lambda")
+                          (Scons (Scons (Ssym a2) Snil) 
+                  (Scons (Scons (Ssym a3)(Scons (Scons (Ssym a4)
+              (Scons (Ssym b) Snil)) Snil)) 
+    Snil))) 
+    Snil))) Snil)) Snil)) = Lfn a1 (Lfn a2 (Lpipe (s2l x1) (Lpipe (s2l x2) 
+    (s2l(Scons (Ssym a3) (Scons (Scons ((Ssym a4))
+                                      (Scons (Ssym b) Snil)) Snil))))))
+
+--cas de tag avec cons 
+s2l( Scons (Ssym "cons") (Scons (Ssym tag) e)) = 
+                                    Lcons tag mytabFct
+                                    where mytabFct = list e
+                                    --mettre tout les expressions suivant 
+                                    --un tag dans une liste
+                                          list :: Sexp -> [Lexp] 
+                                          list (Snum a) = [s2l (Snum a)]
+                                          list (Ssym a) = [s2l (Ssym a)]
+                                          list (Snil) = []
+                                          list (Scons a b) = s2l(a):(list b)
+                                          --list _ = error ("Valeur Sexp apres"
+                                          --       ++ show tag ++ " mal ecrit")  
 
 --un scons venant avec Ssym "cons"
 {--s2l(Scons (Ssym "cons")(Scons x Snil))= Lcons
@@ -326,8 +347,17 @@ eval _senv _denv (Lfn x (Lfn y (Lpipe z (Lpipe t u)))) =
                 in eval varIn1 _denv u
               
 
-eval _senv _denv (Lfn c (Lfn b x)) = foundinEnv c (addEnv b (eval _senv _denv x) _senv)
+eval _senv _denv (Lfn c (Lfn b x)) = 
+                   foundinEnv c (addEnv b (eval _senv _denv x) _senv)
 
+
+eval _senv _denv (Lcons tag xl) = 
+            Vcons tag xl' --on filtre tout les elemnts de la liste
+              where  
+                    xl' = filtre xl
+                    filtre :: [Lexp] -> [Value]
+                    filtre [] = []
+                    filtre (x:xs) = (eval _senv _denv x):(filtre xs)
 -- ¡¡ COMPLETER !!
 eval _ _ e = error ("Can't eval: " ++ show e)
 
