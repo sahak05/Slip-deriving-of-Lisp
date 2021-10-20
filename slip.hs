@@ -289,10 +289,8 @@ foundinEnv  a (x:xs) = if (a == (fst x)) then snd x
 --Ajoute (variable, value) a l'environnement en verifiant si un tuple
 --commencant par la variable ny est pas
 addEnv :: Var -> Value -> Env -> Env 
-addEnv a b [] = (a,b):[]
-addEnv a b (x:xs) = 
-              if (a == fst x) then addEnv a b xs
-                    else x:[]
+addEnv x xv esp = [c | c<- esp, fst c /= x ] ++[(x,xv)]
+
 
 --enleve la variable a un Lvar 
 --Pas vraiment besoin presentement--
@@ -323,14 +321,12 @@ eval _senv _denv (Lpipe x1 (Lpipe x2 (Lvar x3)) ) =
 
 
 eval _senv _denv (Lfn x (Lfn y (Lpipe z (Lpipe t u)))) = 
-    eval (_senv++[(x,(eval _senv _denv z)),(y,(eval _senv _denv t))]) _denv u
-            {--let varIn =(addEnv  x (eval _senv _denv z) _senv)
+            let varIn = addEnv  x (eval _senv _denv z) _senv
                 varIn1 = addEnv y (eval _senv _denv t) varIn
-                in eval varIn1 _denv u--}
---eval ([((strnoL x),(eval _senv _denv z)),((strnoL y),(eval _senv _denv t))]++_senv) _denv u 
+                in eval varIn1 _denv u
               
---eval _senv _denv (Lfn c (Lfn b x)) = foundinEnv c ((b,(eval _senv _denv x)):_denv)
-eval _senv _denv (Lfn c (Lfn b x)) = foundinEnv c ([(b,(eval _senv _denv x))]++_senv)
+
+eval _senv _denv (Lfn c (Lfn b x)) = foundinEnv c (addEnv b (eval _senv _denv x) _senv)
 
 -- ¡¡ COMPLETER !!
 eval _ _ e = error ("Can't eval: " ++ show e)
