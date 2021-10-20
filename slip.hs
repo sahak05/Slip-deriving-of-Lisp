@@ -282,7 +282,7 @@ env0 = let false = Vcons "false" []
 
 foundinEnv :: Var ->[(Var, Value)]-> Value
 --je veux pas avoir le cas ou ca n'existe pas encore mais on peux mettre ca 
-foundinEnv _ [] = error "votre variable inexistante !!"
+foundinEnv a [] = error ("votre variable "++ show a ++" est inexistante !!")
 foundinEnv  a (x:xs) = if (a == (fst x)) then snd x
                             else foundinEnv a xs 
 
@@ -293,6 +293,12 @@ addEnv a b [] = (a,b):[]
 addEnv a b (x:xs) = 
               if (a == fst x) then addEnv a b xs
                     else x:[]
+
+--enleve la variable a un Lvar 
+--Pas vraiment besoin presentement--
+strnoL :: Lexp -> Var
+strnoL (Lvar a) = a
+strnoL _ = error "pas Lvar"
 ---------------------------------------------------------------------------
 -- Fin Espaces donctions auxillaires                                     --
 ---------------------------------------------------------------------------
@@ -310,21 +316,21 @@ eval _senv _denv (Lvar x) = foundinEnv x _senv
                                   --in fct _senv (eval _senv _denv y)
 
 eval _senv _denv (Lpipe x1 (Lpipe x2 (Lvar x3)) ) = 
-                                  let Vfn funct = (foundinEnv x3 _senv) 
+                                  let Vfn funct = eval _senv _denv (Lvar x3) --(foundinEnv x3 _senv) 
                                       Vfn f = funct _senv (eval _senv _denv x2)
                                           in f _senv (eval _senv _denv x1)
 
 
 
 eval _senv _denv (Lfn x (Lfn y (Lpipe z (Lpipe t u)))) = 
-                                 let varIn =(addEnv x (eval _senv _denv z) _senv)
-                                     varIn1 =(addEnv y (eval _senv _denv t) varIn)
-                                     in eval varIn1 _denv u 
-              --where (addEnv x (eval _senv _denv z)) (addEnv y (eval _senv _denv t)) 
-
-
+    eval (_senv++[(x,(eval _senv _denv z)),(y,(eval _senv _denv t))]) _denv u
+            {--let varIn =(addEnv  x (eval _senv _denv z) _senv)
+                varIn1 = addEnv y (eval _senv _denv t) varIn
+                in eval varIn1 _denv u--}
+--eval ([((strnoL x),(eval _senv _denv z)),((strnoL y),(eval _senv _denv t))]++_senv) _denv u 
+              
 --eval _senv _denv (Lfn c (Lfn b x)) = foundinEnv c ((b,(eval _senv _denv x)):_denv)
-eval _senv _denv (Lfn c (Lfn b x)) = foundinEnv c (addEnv b (eval _senv _denv x) _senv)
+eval _senv _denv (Lfn c (Lfn b x)) = foundinEnv c ([(b,(eval _senv _denv x))]++_senv)
 
 -- ¡¡ COMPLETER !!
 eval _ _ e = error ("Can't eval: " ++ show e)
