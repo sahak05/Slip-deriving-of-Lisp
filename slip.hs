@@ -309,6 +309,8 @@ foundinEnv  a (x:xs) = if (a == (fst x)) then snd x
 
 --Ajoute (variable, value) a l'environnement en verifiant si un tuple
 --commencant par la variable ny est pas
+--source 
+--stackoverflow.com/questions/29135331/removing-tuples-from-list-haskell
 addEnv :: Var -> Value -> Env -> Env 
 addEnv x xv esp = [c | c<- esp, fst c /= x ] ++[(x,xv)]
 
