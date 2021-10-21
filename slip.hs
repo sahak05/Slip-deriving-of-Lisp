@@ -37,19 +37,18 @@ data Sexp = Snil                        -- La liste vide
 -- (/ (* (- 68 32) 5) 9)
 --     ==>
 -- Scons (Ssym "/")
---       (Scons (Scons (Ssym "*") // 9-    210
---                     (Scons    //8-  scons 36 5 
---                          (Scons   //6- scons 36 retourne 36
---                              (Ssym "-")   //5-   68-32=36   
---                                   (Scons   //4- scons 68 32
---                                        (Snum 68)    //3-  68
---                                            (Scons    //2-  32
---                                                (Snum 32) Snil) // 1-retroure 32
---                                             )
---                                     )
---                                     (Scons (Snum 5) Snil)   //7-   scons 5 retourne 5
---                           )
---                        )
+--       (Scons (Scons (Ssym "*")
+--                     (Scons   (Scons   
+--                           (Ssym "-")      
+--                         (Scons   
+--                               (Snum 68)    
+--                                 (Scons    
+--                          (Snum 32) Snil) 
+--                                )
+--                          )
+--             (Scons (Snum 5) Snil)   
+--               )
+--                       )
 --              (Scons (Snum 9) Snil))
 
 ---------------------------------------------------------------------------
@@ -203,6 +202,8 @@ s2l (Snum n) = Lnum n
 s2l (Ssym s) = Lvar s
 s2l (Scons (Snum a)Snil) = s2l (Snum a)
 s2l (Scons (Ssym a)Snil) = s2l (Ssym a)
+
+-- cas du (e0 e1 e2 ... en) ⇐⇒ (..((e0 e1) e2) ... en)
 s2l(Scons (x1) (Scons (Scons (x2) (Scons (Ssym c) Snil)) Snil)) 
               = Lpipe (s2l(x1)) (Lpipe (s2l(x2)) (s2l(Ssym c))) 
 
@@ -239,12 +240,14 @@ s2l( Scons (Ssym "cons") (Scons (Ssym tag) e)) =
                                           list (Snum a) = [s2l (Snum a)]
                                           list (Ssym a) = [s2l (Ssym a)]
                                           list (Snil) = []
-                                          list (Scons a b) = s2l(a):(list b)
-                                          --list _ = error ("Valeur Sexp apres"
-                                          --       ++ show tag ++ " mal ecrit")  
+                                          list (Scons a b) = s2l(a):(list b)  
 
---cas du if 
---s2l ( Scons (Ssym "if") (Scons e1 e2)) =
+--cas du if ayant du sucre syntaxique soo remplacement avec case 
+s2l (Scons (Ssym "if") (Scons e1 (Scons e4 (Scons e5 Snil)))) = 
+  s2l (Scons (Ssym "case")
+     (Scons e1(Scons (Scons (Scons (Ssym "true") Snil) (Scons e4 Snil))
+     (Scons(Scons (Scons (Ssym "false") Snil) (Scons e5 Snil))Snil ))))
+
 
 --cas du case 
 -- Lcase Lexp [(Pat, Lexp)] sachant que le Pat c'est 
@@ -263,6 +266,27 @@ s2l ( Scons (Ssym "case")(Scons e1 e2)) =
             tableau Snil = []
             tableau (Scons (Ssym a) b) = a:(tableau b)
             tableau _ = error "we have an error here"
+
+--cas du slet
+s2l ( Scons (Ssym "slet") (Scons x expressionE)) = 
+                            
+    let temp = x
+      in case temp of 
+      (Scons (Scons (Ssym e1) exp1) Snil) ->Llet Lexical e1 (s2l exp1)
+        (s2l expressionE)
+      (Scons y1 y2) -> s2l (Scons (Ssym "slet") (Scons (Scons y1 Snil)
+        (Scons (Ssym "slet")(Scons y2 expressionE))))
+      _ -> error "No match"
+
+
+--cas du dlet
+s2l ( Scons (Ssym "dlet") (Scons x expressionE)) = 
+                            
+      let temp = x
+        in case temp of 
+        (Scons (Scons (Ssym e1) exp1) Snil)
+                   ->Llet Dynamic e1 (s2l exp1) (s2l expressionE)
+        _ -> error "No match"
 -- ¡¡ COMPLETER !!
 s2l se = error ("Malformed Sexp: " ++ (showSexp se))
 
@@ -340,8 +364,8 @@ foundinEnv  a (x:xs) = if (a == (fst x)) then snd x
 addEnv :: Var -> Value -> Env -> Env 
 addEnv x xv esp = [c | c<- esp, fst c /= x ] ++[(x,xv)]
 
---filtre dans le tableau venant avec Lcase pour retourner la chose a faire
-filtrage :: Var ->[(Maybe (Tag, [Var]), Lexp)] -> Lexp
+--filtre dans le tableau venant avec Lcase pour retourner le Lexp a evaluer
+filtrage :: Value ->[(Maybe (Tag, [Var]), Lexp)] -> Lexp
 filtrage _ [] = error ("we got an error in the filtrage fct")
 filtrage a ((Nothing,x):xs) = 
                 let temp = Nothing 
@@ -349,11 +373,12 @@ filtrage a ((Nothing,x):xs) =
                  Nothing -> x
                  _ -> filtrage a xs
 
-filtrage a (x:xs) = if (a == fst(reconnai x)) then snd x else filtrage a xs 
-  {--let cst = (fst (reconnai x)) 
-                      in case cst of
-                        a-> (snd x)
-                        _ -> filtrage a xs--}
+filtrage (Vcons a b) (x:xs) = if 
+                          ((a) == fst(reconnai x)) then snd x 
+                            else filtrage (Vcons a b) xs
+filtrage _ _ = error "we can't have that error" 
+
+--filtre sur tableau en utilisant des Var en retournant le tuple 
 filtrage2 :: Var ->[(Maybe (Tag, [Var]), Lexp)] -> (Maybe (Tag, [Var]), Lexp)
 filtrage2 _ [] = error ("we got an error in the filtrage fct")
 filtrage2 a ((Nothing,x):xs) = 
@@ -374,13 +399,13 @@ filtrage2 a (x:xs) = if (a == fst(reconnai x)) then x else filtrage2 a xs
 eval :: Env -> Env -> Lexp -> Value
 eval _senv _denv (Lnum n) = Vnum n 
 eval _senv _denv (Lvar x) = foundinEnv x _senv 
---Lfun et Lpipe assez pretty bon 
---Lfun respecte deja la recursion et Lpipe juste le cas ou il ya Lfun en ddans
---eval _senv _denv (Lfn x y) = let Vfn fct = (foundinEnv x _senv) 
-                                  --in fct _senv (eval _senv _denv y)
+eval _senv _denv (Llet x  y z t) = 
+            case x of
+            Lexical -> eval (addEnv y (eval _senv _denv z) _senv) _denv t
+            _ -> error"On a pas eu celui de Dynamic a temps"  
 
 eval _senv _denv (Lpipe x1 (Lpipe x2 (Lvar x3)) ) = 
-        let Vfn funct = eval _senv _denv (Lvar x3) --(foundinEnv x3 _senv) 
+        let Vfn funct = eval _senv _denv (Lvar x3)  
             Vfn f = funct _senv (eval _senv _denv x2)
                 in f _senv (eval _senv _denv x1)
 
@@ -419,6 +444,9 @@ eval _senv _denv (Lcase (Lcons y exp') tab1) =
                                   ens :: [Var]->[Value]->Env 
                                   ens (x:xs) (x1:x1s) = (x,x1):(ens xs x1s)
                                   ens _ _ = error "impossible" 
+
+eval _senv _denv (Lcase e1 tab1) = 
+                     eval _senv _denv (filtrage (eval _senv _denv e1) tab1)
 -- ¡¡ COMPLETER !!
 eval _ _ e = error ("Can't eval: " ++ show e)
 
