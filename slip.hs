@@ -201,8 +201,12 @@ data Lexp = Lnum Int            -- Constante entière.
 s2l :: Sexp -> Lexp
 s2l (Snum n) = Lnum n
 s2l (Ssym s) = Lvar s
+s2l (Scons (Snum a)Snil) = s2l (Snum a)
+s2l (Scons (Ssym a)Snil) = s2l (Ssym a)
 s2l(Scons (x1) (Scons (Scons (x2) (Scons (Ssym c) Snil)) Snil)) 
               = Lpipe (s2l(x1)) (Lpipe (s2l(x2)) (s2l(Ssym c))) 
+
+s2l (Scons (Scons x1 exp1) Snil) = s2l (Scons x1 exp1)
 
 --cas ou le sucre syntaxique nest pas 
 s2l(Scons (Snum a) 
@@ -239,11 +243,26 @@ s2l( Scons (Ssym "cons") (Scons (Ssym tag) e)) =
                                           --list _ = error ("Valeur Sexp apres"
                                           --       ++ show tag ++ " mal ecrit")  
 
---un scons venant avec Ssym "cons"
-{--s2l(Scons (Ssym "cons")(Scons x Snil))= Lcons
-s2l(Scons (Ssym "cons") (Scons x y))= Lcons "cons" [(s2l x), (s2l y)]
-s2l(Scons (Ssym "cons") (Scons (Ssym "nil") Snil))--}
+--cas du if 
+--s2l ( Scons (Ssym "if") (Scons e1 e2)) =
 
+--cas du case 
+-- Lcase Lexp [(Pat, Lexp)] sachant que le Pat c'est 
+--Maybe (Tag, [Var])
+s2l ( Scons (Ssym "case")(Scons e1 e2)) = 
+      Lcase (s2l e1) condition
+      where condition = tri e2
+            tri :: Sexp -> [(Pat, Lexp)]
+            tri Snil = []
+            tri (Scons (Scons (Ssym "_") b) x) = (Nothing,(s2l b)):(tri x)
+            tri (Scons (Scons (Scons (Ssym a) b) c) x) =
+                    ((Just(a, (tableau b))),(s2l c)):(tri x)
+            --tri (Scons a b) = (tri a)++(tri b)
+            tri _ = error "here we have too"--on va jamais si Sexp bien
+            tableau :: Sexp -> [Var]
+            tableau Snil = []
+            tableau (Scons (Ssym a) b) = a:(tableau b)
+            tableau _ = error "we have an error here"
 -- ¡¡ COMPLETER !!
 s2l se = error ("Malformed Sexp: " ++ (showSexp se))
 
@@ -301,6 +320,13 @@ env0 = let false = Vcons "false" []
 -- Espaces fonctions auxillaires                                         --
 ---------------------------------------------------------------------------
 
+reconnai :: (Maybe (Tag, [Var]), Lexp) -> (Tag, [Var])
+reconnai a = let cst = a 
+              in case cst of
+               ((Just y), _) -> y
+               _ -> error "not a just tuple"
+
+
 foundinEnv :: Var ->[(Var, Value)]-> Value
 --je veux pas avoir le cas ou ca n'existe pas encore mais on peux mettre ca 
 foundinEnv a [] = error ("votre variable "++ show a ++" est inexistante !!")
@@ -314,12 +340,29 @@ foundinEnv  a (x:xs) = if (a == (fst x)) then snd x
 addEnv :: Var -> Value -> Env -> Env 
 addEnv x xv esp = [c | c<- esp, fst c /= x ] ++[(x,xv)]
 
+--filtre dans le tableau venant avec Lcase pour retourner la chose a faire
+filtrage :: Var ->[(Maybe (Tag, [Var]), Lexp)] -> Lexp
+filtrage _ [] = error ("we got an error in the filtrage fct")
+filtrage a ((Nothing,x):xs) = 
+                let temp = Nothing 
+                 in case temp of
+                 Nothing -> x
+                 _ -> filtrage a xs
 
---enleve la variable a un Lvar 
---Pas vraiment besoin presentement--
-strnoL :: Lexp -> Var
-strnoL (Lvar a) = a
-strnoL _ = error "pas Lvar"
+filtrage a (x:xs) = if (a == fst(reconnai x)) then snd x else filtrage a xs 
+  {--let cst = (fst (reconnai x)) 
+                      in case cst of
+                        a-> (snd x)
+                        _ -> filtrage a xs--}
+filtrage2 :: Var ->[(Maybe (Tag, [Var]), Lexp)] -> (Maybe (Tag, [Var]), Lexp)
+filtrage2 _ [] = error ("we got an error in the filtrage fct")
+filtrage2 a ((Nothing,x):xs) = 
+                let temp = Nothing 
+                 in case temp of
+                 Nothing -> (Nothing,x)
+                 _ -> filtrage2 a xs
+
+filtrage2 a (x:xs) = if (a == fst(reconnai x)) then x else filtrage2 a xs
 ---------------------------------------------------------------------------
 -- Fin Espaces donctions auxillaires                                     --
 ---------------------------------------------------------------------------
@@ -337,9 +380,9 @@ eval _senv _denv (Lvar x) = foundinEnv x _senv
                                   --in fct _senv (eval _senv _denv y)
 
 eval _senv _denv (Lpipe x1 (Lpipe x2 (Lvar x3)) ) = 
-                                  let Vfn funct = eval _senv _denv (Lvar x3) --(foundinEnv x3 _senv) 
-                                      Vfn f = funct _senv (eval _senv _denv x2)
-                                          in f _senv (eval _senv _denv x1)
+        let Vfn funct = eval _senv _denv (Lvar x3) --(foundinEnv x3 _senv) 
+            Vfn f = funct _senv (eval _senv _denv x2)
+                in f _senv (eval _senv _denv x1)
 
 
 
@@ -360,6 +403,22 @@ eval _senv _denv (Lcons tag xl) =
                     filtre :: [Lexp] -> [Value]
                     filtre [] = []
                     filtre (x:xs) = (eval _senv _denv x):(filtre xs)
+
+eval _senv _denv (Lcase (Lcons y exp') tab1) = 
+             let trans = filtrage2 y tab1
+               in case trans of
+               (Nothing,x) -> eval _senv _denv x
+               (Just(a,b),c) -> eval newEnv _denv c
+                              where
+                                  change = eval _senv _denv (Lcons y exp') 
+                                  newEnv = (_senv++(concat1 (a,b) change))
+                                  
+                                  concat1 :: (Tag, [Var]) -> Value ->Env 
+                                  concat1 (_,t0) (Vcons _ t1) = ens t0 t1
+                                  concat1 _ _ = error "error"
+                                  ens :: [Var]->[Value]->Env 
+                                  ens (x:xs) (x1:x1s) = (x,x1):(ens xs x1s)
+                                  ens _ _ = error "impossible" 
 -- ¡¡ COMPLETER !!
 eval _ _ e = error ("Can't eval: " ++ show e)
 
