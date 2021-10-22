@@ -1,0 +1,116 @@
+\documentclass[10pt, titlepage]{article}
+
+\usepackage[margin=0.5in]{geometry}
+\usepackage{amsmath, amssymb}
+\usepackage{microtype}
+\usepackage{titlesec}
+
+% Code snippets
+\usepackage{listings}
+\usepackage{color}
+
+
+\title{Rapport ift2035}
+\author{Abdoul SADIKOU 20158628\\
+        NOUGBODÉ Marc-Arthur 20145155}
+\date{21 Octobre 2021}
+
+\begin{document}
+
+
+
+\maketitle
+
+\pagenumbering{arabic}
+\setcounter{page}{2}
+
+\newpage
+
+\section{Syntaxe de Slip}
+
+La syntaxe de ce langage fonctionnel était assez difficile à saisir, en particulier les fonctions et les structures . Cependant après avoir regardé les exemples simples dans le fichier \texttt{exemples.slip} nous avons en quelques sortes pu en saisir la sémantique. L'une des raisons qui ont contribué à un obstacle a été le fait que la syntaxe est en postfixe, le sucre syntaxique qui n'a pas été évident et comment la syntaxe de Lisp allait nous aider. Après plusieurs lectures et plusieurs visionnages de la vidéo promenade, on a pu faire certaines associations cas par cas.
+
+\subsection{Implantation - Conversion de Sexp à Lexp}
+
+L'étape initiale de l'implémentation a été de lire la première partie du code c'est - à -dire la section qui effectue la transformation du code de notre langage slip en représentation \texttt{Sexp}. Cette lecture du code nous a permis d'avoir une idée de comment se forme une expression du type \texttt{Sexp} . Grâce a la fonction \texttt{readSexp} nous avons été en mesure de tester certains morceaux de code du fichier \texttt{exemples.slip} pour nous familiariser avec la transformation du code source en une représentation \texttt{Sexp}.
+Un élément important que nous avions fait avant de commencer notre
+implémentation de code était de rapidement survoler la section du code traitant
+la première phase déjà fournit, visant à transformer le code source en une
+représentation \texttt{Sexp}. Le but était de se familiariser avec les
+définitions et fonctions utiles pour compléter la seconde phase. Un
+défi par la suite était de bien comprendre la représentation \texttt{Sexp}
+provenant d'une expression \texttt{Slip}. Pour le surmonter, nous avions
+commencé avec les cas les plus évidents du fichier exemples.slip et au fur et a mesure en faisant le \texttt{s2l (readSexp "expression")} pour avoir l'idée du résultat de notre fonction s2l.\\
+
+Par après, la conversion d'une \texttt{Sexp} en \texttt{Lexp} s'est déroulée
+avec plusieurs embûches sachant que certains cas devrait d'abord perdre leurs sucres syntaxiques avant d'être pris comme argument par le \texttt{s2l}. Ainsi, le cas du lambda, d'un nombre, d'un string a été directes. La conversion des expressions \texttt{cons},\texttt{case} et \texttt{if} ont été plutôt réussis car on a compris comment enlevés le sucre syntaxique et mieux généraliser leurs formes dans le type \texttt{Lexp}. 
+Pour les expressions ayant \texttt{slet et dlet}, nous avons compris comment apres etude de notre expression de type \texttt{Sexp}, l'agencement pour donner l'expression de type \texttt{Lexp} qui respectait le format \texttt{Lcase var Lexp Lexp}. Ces expressions ont été étudies par cas ou le slet était a valeur constante, valeur non constante ou une fonction.\\
+
+\subsection{Sucre syntaxique}
+Le sucre syntaxique a constitué le défi majeur pour notre groupe au cours de ce tp. 
+En effet la compréhension  de la syntaxe des expressions fut assez facile à implémenter cependant nous ne savions pas quelle serait l'utilité du retrait du sucre syntaxique nous en avons juste pris note sans pour autant en tenir compte dans notre code. Initialement notre code ne consistait qu'à directement traduire  une déclaration en ses \texttt{Lexp} et \texttt{Ltype} correspondants.\\
+Lors de l'exécution de tests, il y eut des problèmes dans la vérification et
+l'évaluation des expressions qui contenaient plusieurs arguments. Nous sommes retourner à l'énoncé et nous nous sommes rendu compte que le sucre syntaxique était l'origine des erreurs que nous obtenions. La syntaxe du sucre n'étant pas récursif nous avons eu recours à l'utilisation du case pour défaire le sucre syntaxique.
+
+\begin{equation*}
+    \begin{aligned}
+        & (slet \ (x_1 \...\ x_n) \ e) && \implies (slet (x_1) \...\ (x_n) \  e) \\
+        & (dlet \ (x_1 \...\ x_n) \ e) && \implies (dlet (x_1) \...\ (x_n) \  e) \\
+        & (if \quad e_1 \  e_2 \ e_3 ) && \implies     (case\quad e_1 ((True) e_2) ((False) e_3)) \\
+     
+    \end{aligned}
+\end{equation*}
+
+Ce que les implications ci-dessus décrivent:
+
+\begin{itemize}
+    \item C'est que la déclaration d'une fonction peut être réécrite en
+    spécifiant la variable et sa nouvelle valeur dans  le corps de l'expression ;
+    \item Qui décompose le if en une série de case suivant  l'évaluation de la condition.
+    avec son type;
+\end{itemize}
+
+
+\section{Portée}
+
+Implémenter la portée est assez intuitif  et les règles étaient bien énoncés .
+
+\subsection{Portée lexicale - Portée dynamique }
+
+Cette partie de l'implantation s'est bien déroulée. En suivant les
+règles du langage, il y a cette correspondance directe entre les
+règles et l'implantation. Au fur et à mesure que l'on introduisait une nouvelle
+expression nous nous sommes rendu compte que le manque de généralité de la fonction  
+\texttt{s2l} notamment en ce qui concerne le la fonction anonyme lambda  et l'appel de fonction (\texttt{Lpipe}). Cette fonction ne couvre pas tous les cas possibles mais juste les cas comportant deux variables par conséquent nous n'avons pas pu implémenter la fonction \texttt{s2l} pour la \texttt{slet} et \texttt{dlet}. Nous n'avons donc pas pu les  traduire en Lexp
+
+\section{Règles d'évaluation}
+
+Les règles d'évaluation étaient assez intuitives. Après le survol du code, nous nous sommes basés sur la forme des fonctions prédéfinies du langage pour déterminer la forme attendue de l'évaluation d'une fonction. On note également une correspondance directe des constructeurs de types de \texttt{Value} avec ceux de \texttt{Lexp} ce qui
+nous a indiqué précisément le type de résultat de l'évaluation des diverses
+expressions.
+
+\subsection{Implantation - Évaluateur}
+
+À la lumière des remarques et notes ci-dessus, l'évaluation des expressions
+\texttt{cons}, \texttt{lambda}, \texttt{if}, \texttt{case} et \texttt{Lpipe}
+fut assez directe et simple. 
+
+Pour évaluer une variable nous avons implémenter la fonction  $foundinEnv::Var \rightarrow [(Var,Value)]$ qui permet de retrouver la valeur d'une variable si présente dans l'environnement.
+
+Pour l'évaluation d'une fonction anonyme on a créé la fonction  $addEnv:: Var \rightarrow Value \rightarrow Env \rightarrow Env$ .Elle permet d'ajouter un tuple à l'environnement.
+
+L'évaluation du \texttt{if}  la fonction $filtrage::Value \rightarrow[(Maybe(tag,[Var]),Lexp)]$ est utilisée  pour retourner la valeur directe dans un case de if.
+
+Sachant que filtrage est utilisée dans les case contenant des \texttt{if}   $filtrage2::Var \rightarrow [(Maybe(tag,[Var]),Lexp)] \rightarrow (Maybe(Tag,[Var]),Lexp)$  est utilisée dans tous les cas de case particulièrement si \texttt{Lcase (Lcons _ _ )_}   
+
+
+\section{Tests}
+
+L'étape qui suit à ce point est de tester notre implémentation sur des
+exemples. Nous avions employé pour commencer les tests qui figurent dans le
+fichier \texttt{exemple.slip}. On voyait que tous les tests passaient sauf les tests qui se rapportent à \texttt{slet} \texttt{dlet} qui ne fonctionnent pas. Les tests que nous avons implémentés se trouvent notre fichier test.slip
+
+
+
+
+\end{document}
